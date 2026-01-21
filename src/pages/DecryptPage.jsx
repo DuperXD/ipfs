@@ -48,22 +48,44 @@ export default function DecryptPage() {
     setError('');
 
     try {
-      // Construct IPFS URL
-      const ipfsUrl = gateway.endsWith('/') 
-        ? `${gateway}${cid}` 
-        : `${gateway}/${cid}`;
+      // Construct IPFS URL - handle different gateway formats
+      let ipfsUrl;
+      if (gateway.includes('/ipfs/')) {
+        // Gateway already has /ipfs/ in it
+        ipfsUrl = gateway.endsWith('/') ? `${gateway}${cid}` : `${gateway}/${cid}`;
+      } else {
+        // Add /ipfs/ path
+        const baseGateway = gateway.endsWith('/') ? gateway.slice(0, -1) : gateway;
+        ipfsUrl = `${baseGateway}/ipfs/${cid}`;
+      }
 
       console.log('📥 Downloading encrypted file from IPFS...');
-      console.log('URL:', ipfsUrl);
+      console.log('Gateway:', gateway);
+      console.log('CID:', cid);
+      console.log('Final URL:', ipfsUrl);
       
-      // Fetch encrypted file
-      const response = await fetch(ipfsUrl);
+      // Fetch encrypted file with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      const response = await fetch(ipfsUrl, { 
+        signal: controller.signal,
+        mode: 'cors'
+      });
+      
+      clearTimeout(timeoutId);
+      
       if (!response.ok) {
-        throw new Error('Failed to download file from IPFS');
+        throw new Error(`Failed to download file from IPFS: ${response.status} ${response.statusText}`);
       }
       
       const encryptedBlob = await response.blob();
       console.log('📦 File downloaded:', encryptedBlob.size, 'bytes');
+      
+      if (encryptedBlob.size === 0) {
+        throw new Error('Downloaded file is empty');
+      }
+      
       console.log('🔓 Decrypting...');
       
       // Decrypt the file
@@ -144,7 +166,19 @@ export default function DecryptPage() {
       
     } catch (err) {
       console.error('Decryption error:', err);
-      setError('❌ Incorrect password or corrupted file. Please try again.');
+      
+      // Provide specific error messages
+      if (err.message.includes('Incorrect password')) {
+        setError('❌ Incorrect password. Please try again.');
+      } else if (err.message.includes('Failed to download')) {
+        setError('❌ Failed to download file from IPFS. The file may not exist or the gateway may be unavailable. Please try again later.');
+      } else if (err.message.includes('empty')) {
+        setError('❌ Downloaded file is empty. The file may be corrupted.');
+      } else if (err.name === 'AbortError') {
+        setError('❌ Download timed out. The file may be too large or the network is slow. Please try again.');
+      } else {
+        setError('❌ Decryption failed. Please check your password and try again. If the problem persists, the file may be corrupted.');
+      }
     } finally {
       setIsDecrypting(false);
     }
