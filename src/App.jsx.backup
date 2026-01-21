@@ -1,0 +1,338 @@
+import React, { useState, useEffect } from 'react';
+import Header from './components/Header';
+import UploadSection from './components/UploadSection';
+import FilesList from './components/FilesList';
+import ShareSection from './components/ShareSection';
+import { WalletService } from './utils/wallet';
+import { IPFSService } from './utils/ipfs';
+import { theme } from './styles/theme';
+
+export default function App() {
+  const [account, setAccount] = useState('');
+  const [isConnected, setIsConnected] = useState(false);
+  const [files, setFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [activeTab, setActiveTab] = useState('upload');
+  const [sharedLink, setSharedLink] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isMetaMaskInstalled, setIsMetaMaskInstalled] = useState(false);
+  const [ipfsMode, setIpfsMode] = useState('checking'); // 'real', 'simulated', or 'checking'
+
+  const walletService = new WalletService();
+  const ipfsService = new IPFSService();
+
+  // Check if wallet is already connected on mount
+  useEffect(() => {
+    // Wait a bit for MetaMask to inject
+    const timer = setTimeout(() => {
+      setIsMetaMaskInstalled(typeof window.ethereum !== 'undefined');
+      setIpfsMode(ipfsService.useRealIPFS ? 'real' : 'simulated');
+      checkConnection();
+      setupEventListeners();
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Load files when account changes
+  useEffect(() => {
+    if (account) {
+      loadFilesFromStorage();
+    }
+  }, [account]);
+
+  const checkConnection = async () => {
+    const { connected, account: walletAccount } = await walletService.checkIfWalletIsConnected();
+    if (connected) {
+      setAccount(walletAccount);
+      setIsConnected(true);
+    }
+  };
+
+  const setupEventListeners = () => {
+    walletService.onAccountsChanged((accounts) => {
+      if (accounts.length > 0) {
+        setAccount(accounts[0]);
+        setIsConnected(true);
+      } else {
+        setAccount('');
+        setIsConnected(false);
+        setFiles([]);
+      }
+    });
+
+    walletService.onChainChanged(() => {
+      window.location.reload();
+    });
+  };
+
+  const connectWallet = async () => {
+    const { success, account: walletAccount, error } = await walletService.connectWallet();
+    if (success) {
+      setAccount(walletAccount);
+      setIsConnected(true);
+    } else {
+      alert(error || 'Failed to connect wallet. Please install MetaMask.');
+    }
+  };
+
+  const disconnectWallet = () => {
+    setAccount('');
+    setIsConnected(false);
+    setFiles([]);
+  };
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!isConnected) {
+      alert('Please connect your wallet first!');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const fileData = await ipfsService.uploadFile(file, account);
+      const newFiles = [...files, fileData];
+      setFiles(newFiles);
+      saveFilesToStorage(newFiles);
+      alert('✅ File uploaded successfully to IPFS!');
+      event.target.value = '';
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('❌ Failed to upload file. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const saveFilesToStorage = (filesData) => {
+    const storageKey = `ipfs_files_${account}`;
+    localStorage.setItem(storageKey, JSON.stringify(filesData));
+  };
+
+  const loadFilesFromStorage = () => {
+    const storageKey = `ipfs_files_${account}`;
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      setFiles(JSON.parse(stored));
+    } else {
+      setFiles([]);
+    }
+  };
+
+  const deleteFile = async (cid) => {
+    if (confirm('Are you sure you want to delete this file? This will remove it from IPFS permanently.')) {
+      try {
+        // Find the file to check if it's real IPFS
+        const fileToDelete = files.find(f => f.cid === cid);
+        
+        // If using real IPFS, unpin from Pinata
+        if (fileToDelete && fileToDelete.isRealIPFS && ipfsService.useRealIPFS) {
+          console.log('🗑️ Unpinning from Pinata...');
+          await ipfsService.deleteFromPinata(cid);
+          alert('✅ File deleted from IPFS and local storage!');
+        } else {
+          alert('✅ File deleted from local storage!');
+        }
+        
+        // Remove from local storage
+        const updatedFiles = files.filter(f => f.cid !== cid);
+        setFiles(updatedFiles);
+        saveFilesToStorage(updatedFiles);
+      } catch (error) {
+        console.error('Error deleting file:', error);
+        alert('⚠️ File removed from app, but failed to unpin from Pinata. You can manually delete it from Pinata dashboard.');
+        
+        // Still remove from local storage even if unpinning fails
+        const updatedFiles = files.filter(f => f.cid !== cid);
+        setFiles(updatedFiles);
+        saveFilesToStorage(updatedFiles);
+      }
+    }
+  };
+
+  const generateShareLink = (cid) => {
+    const link = ipfsService.getGatewayUrl(cid);
+    setSharedLink(link);
+    navigator.clipboard.writeText(link);
+    setActiveTab('share');
+  };
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: theme.colors.background.primary,
+      color: theme.colors.text.primary,
+    }}>
+      <Header
+        isConnected={isConnected}
+        account={account}
+        onConnect={connectWallet}
+        onDisconnect={disconnectWallet}
+        ipfsMode={ipfsMode}
+      />
+
+      <main style={{
+        maxWidth: '1400px',
+        margin: '0 auto',
+        padding: theme.spacing.lg,
+      }}>
+        {!isConnected ? (
+          <div style={{
+            textAlign: 'center',
+            padding: `${theme.spacing.xl} ${theme.spacing.lg}`,
+            background: theme.colors.background.card,
+            borderRadius: theme.borderRadius.lg,
+            border: `1px solid ${theme.colors.border}`,
+          }}>
+            <div style={{ fontSize: '4rem', marginBottom: theme.spacing.sm }}>🔐</div>
+            <h2 style={{ fontSize: '2rem', marginBottom: theme.spacing.sm }}>
+              {isMetaMaskInstalled ? 'Connect Your Wallet to Continue' : 'MetaMask Not Detected'}
+            </h2>
+            <p style={{ color: theme.colors.text.secondary, fontSize: '1.1rem', marginBottom: theme.spacing.lg }}>
+              {isMetaMaskInstalled 
+                ? 'Authenticate with MetaMask to access decentralized file storage powered by IPFS'
+                : 'Please install MetaMask browser extension and refresh this page'}
+            </p>
+            {!isMetaMaskInstalled && (
+              <a 
+                href="https://metamask.io/download/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-block',
+                  background: theme.colors.blue.gradient,
+                  color: 'white',
+                  padding: `${theme.spacing.sm} ${theme.spacing.lg}`,
+                  borderRadius: theme.borderRadius.md,
+                  textDecoration: 'none',
+                  fontSize: '1.1rem',
+                  fontWeight: '600',
+                  marginBottom: theme.spacing.lg,
+                  boxShadow: theme.shadows.md,
+                }}
+              >
+                🦊 Download MetaMask
+              </a>
+            )}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+              gap: theme.spacing.md,
+              marginTop: theme.spacing.xl,
+              textAlign: 'left',
+            }}>
+              {[
+                { icon: '🦊', title: 'MetaMask Required', desc: 'Install MetaMask browser extension to get started' },
+                { icon: '🔒', title: 'Secure & Private', desc: 'Your wallet credentials never leave your browser' },
+                { icon: '⚡', title: 'Instant Access', desc: 'Connect once and access your files anytime' },
+              ].map((item, i) => (
+                <div key={i} style={{
+                  background: 'rgba(59, 130, 246, 0.05)',
+                  padding: theme.spacing.md,
+                  borderRadius: theme.borderRadius.md,
+                  border: `1px solid ${theme.colors.border}`,
+                }}>
+                  <div style={{ fontSize: '2rem', marginBottom: theme.spacing.xs }}>{item.icon}</div>
+                  <h3 style={{ fontSize: '1rem', marginBottom: theme.spacing.xs }}>{item.title}</h3>
+                  <p style={{ color: theme.colors.text.secondary, fontSize: '0.9rem', margin: 0 }}>
+                    {item.desc}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Tabs Navigation */}
+            <div style={{
+              display: 'flex',
+              gap: theme.spacing.sm,
+              marginBottom: theme.spacing.lg,
+              borderBottom: `2px solid ${theme.colors.border}`,
+            }}>
+              {[
+                { id: 'upload', label: '📤 Upload', icon: '📤' },
+                { id: 'files', label: '📁 My Files', icon: '📁' },
+                { id: 'share', label: '🔗 Share', icon: '🔗' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{
+                    background: activeTab === tab.id ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
+                    border: 'none',
+                    borderBottom: activeTab === tab.id 
+                      ? `2px solid ${theme.colors.blue.primary}` 
+                      : '2px solid transparent',
+                    color: activeTab === tab.id ? theme.colors.blue.light : theme.colors.text.secondary,
+                    padding: `${theme.spacing.sm} ${theme.spacing.lg}`,
+                    cursor: 'pointer',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    transition: 'all 0.3s',
+                    marginBottom: '-2px',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (activeTab !== tab.id) {
+                      e.target.style.color = theme.colors.text.primary;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (activeTab !== tab.id) {
+                      e.target.style.color = theme.colors.text.secondary;
+                    }
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab Content */}
+            {activeTab === 'upload' && (
+              <UploadSection
+                onFileUpload={handleFileUpload}
+                uploading={uploading}
+              />
+            )}
+
+            {activeTab === 'files' && (
+              <FilesList
+                files={files}
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                onDelete={deleteFile}
+                onShare={generateShareLink}
+                formatFileSize={ipfsService.formatFileSize}
+                formatDate={ipfsService.formatDate}
+              />
+            )}
+
+            {activeTab === 'share' && (
+              <ShareSection
+                sharedLink={sharedLink}
+                files={files}
+                onGenerateLink={generateShareLink}
+              />
+            )}
+          </>
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer style={{
+        textAlign: 'center',
+        padding: theme.spacing.lg,
+        color: theme.colors.text.secondary,
+        fontSize: '0.9rem',
+      }}>
+        <p>
+          🌐 Powered by IPFS • 🔐 Secured by Blockchain • ⚡ Built with Web3
+        </p>
+      </footer>
+    </div>
+  );
+}
