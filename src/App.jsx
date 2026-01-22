@@ -464,7 +464,7 @@ export default function App() {
                   onNavigate={navigateToFolder}
                   onDeleteFolder={deleteFolder}
                 />
-```
+
 
 
 
@@ -488,7 +488,7 @@ export default function App() {
                   onNavigate={navigateToFolder}
                   onDeleteFolder={deleteFolder}
                 />
-```
+
 
 
 
