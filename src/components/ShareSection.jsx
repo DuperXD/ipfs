@@ -18,26 +18,36 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
   };
 
   // Generate QR code URL when showing QR
-  useEffect(() => {
-    if (sharedLink && sharedLink.file && showQRCode) {
-      try {
-        const file = sharedLink.file;
+  // Generate QR code URL when showing QR
+useEffect(() => {
+  if (sharedLink && sharedLink.file && showQRCode) {
+    try {
+      const file = sharedLink.file;
+      
+      // Determine which link to use for QR code
+      let linkForQR;
+      
+      if (file.encrypted) {
+        // Encrypted file: Use decrypt link
         const gateway = sharedLink.url && sharedLink.url.includes('ipfs.io') 
           ? 'https://ipfs.io/ipfs/'
           : 'https://chocolate-accepted-galliform-350.mypinata.cloud/ipfs/';
-        
-        const decryptLink = generateDecryptLink(file, gateway);
-        
-        if (decryptLink) {
-          // Use QR code generation API
-          const qrURL = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(decryptLink)}&color=3b82f6&bgcolor=ffffff`;
-          setQrCodeURL(qrURL);
-        }
-      } catch (error) {
-        console.error('Error generating QR code:', error);
+        linkForQR = generateDecryptLink(file, gateway);
+      } else {
+        // Non-encrypted file: Use direct IPFS link
+        linkForQR = sharedLink.url;
       }
+      
+      if (linkForQR) {
+        // Use QR code generation API
+        const qrURL = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(linkForQR)}&color=3b82f6&bgcolor=ffffff`;
+        setQrCodeURL(qrURL);
+      }
+    } catch (error) {
+      console.error('Error generating QR code:', error);
     }
-  }, [sharedLink, showQRCode]);
+  }
+}, [sharedLink, showQRCode]);
 
   const copyToClipboard = (text, type) => {
     try {
