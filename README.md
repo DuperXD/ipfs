@@ -12,7 +12,8 @@ A modern decentralized file storage system built with React, IPFS, and blockchai
 - 🎨 **Modern UI**: Beautiful dark-themed interface with shades of blue
 - 🔍 **File Search**: Quick search functionality for uploaded files
 - 📊 **Storage Stats**: Track total files and storage usage
-
+- 📊 ** Analytics Dashboard
+- ⚙️ ** QR Code Sharing
 ## 🏗️ Project Structure
 
 ```
@@ -239,6 +240,15 @@ const cid = result.path; // Real IPFS CID
 4. Select file from your computer
 5. File is hashed and stored
 
+### 📊 Analytics Dashboard
+- **Storage Insights** - Real-time storage usage with visual progress bars
+- **Upload Activity Charts** - 7-day upload activity with bar graphs
+- **File Type Breakdown** - Visual distribution of images, videos, documents, audio
+- **Recent Uploads** - Timeline of latest file uploads
+- **Largest Files Ranking** - Top 5 files by size
+- **Encryption Statistics** - Percentage of encrypted vs public files
+- **Folder Analytics** - Total folders and organization metrics
+
 ### Managing Files
 1. Click "My Files" tab
 2. Search files using search bar
@@ -250,6 +260,15 @@ const cid = result.path; // Real IPFS CID
 2. Click "Generate Link" on desired file
 3. Link is copied to clipboard automatically
 4. Share the IPFS gateway URL
+
+### 📱 QR Code Sharing
+- **Smart QR Generation** - Automatic QR code for any file
+- **Encrypted File Support** - QR opens decrypt page for encrypted files
+- **Direct Access** - QR opens file directly for public files
+- **Mobile-First** - Scan with any phone camera (no app needed)
+- **Downloadable QR Codes** - Save QR as PNG image
+- **High Quality** - 300x300 pixel QR with error correction
+- **Theme Matched** - Blue QR codes matching app design
 
 ## 🤝 Contributing
 
