@@ -468,14 +468,7 @@ export default function App() {
 
 
 
-**Home folder:**
-```
-🏠 Home
-[📁 New Folder]
-```
-No delete button (can't delete home!)
 
-**Inside a folder:**
 ```
 🏠 Home › 📁 Documents
 [📁 New Folder] [🗑️ Delete Folder]
@@ -499,17 +492,7 @@ No delete button (can't delete home!)
 ```
 
 
-**Home folder:**
-```
-🏠 Home
-[📁 New Folder]
-```
-No delete button (can't delete home!)
 
-**Inside a folder:**
-```
-🏠 Home › 📁 Documents
-[📁 New Folder] [🗑️ Delete Folder]
                 
                 {getCurrentSubfolders().length > 0 && (
                   <div style={{
