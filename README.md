@@ -210,11 +210,6 @@ const cid = result.path; // Real IPFS CID
 - Wallet private keys never leave the browser
 
 ## 🚀 Future Enhancements
-
-- [ ] Real IPFS node integration (Pinata/Infura)
-- [ ] File encryption before upload
-- [ ] Multiple file upload support
-- [ ] File preview functionality
 - [ ] Download tracking
 - [ ] Blockchain-based file registry smart contract
 - [ ] ENS (Ethereum Name Service) integration
