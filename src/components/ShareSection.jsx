@@ -18,36 +18,41 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
   };
 
   // Generate QR code URL when showing QR
-  // Generate QR code URL when showing QR
-useEffect(() => {
-  if (sharedLink && sharedLink.file && showQRCode) {
-    try {
-      const file = sharedLink.file;
-      
-      // Determine which link to use for QR code
-      let linkForQR;
-      
-      if (file.encrypted) {
-        // Encrypted file: Use decrypt link
-        const gateway = sharedLink.url && sharedLink.url.includes('ipfs.io') 
-          ? 'https://ipfs.io/ipfs/'
-          : 'https://chocolate-accepted-galliform-350.mypinata.cloud/ipfs/';
-        linkForQR = generateDecryptLink(file, gateway);
-      } else {
-        // Non-encrypted file: Use direct IPFS link
-        linkForQR = sharedLink.url;
+  useEffect(() => {
+    if (sharedLink && sharedLink.file && showQRCode) {
+      try {
+        const file = sharedLink.file;
+        
+        console.log('Generating QR for file:', file);
+        console.log('File encrypted?', file.encrypted);
+        
+        // Determine which link to use for QR code
+        let linkForQR;
+        
+        if (file.encrypted) {
+          // ENCRYPTED FILE: Use decrypt link
+          const gateway = sharedLink.url && sharedLink.url.includes('ipfs.io') 
+            ? 'https://ipfs.io/ipfs/'
+            : 'https://chocolate-accepted-galliform-350.mypinata.cloud/ipfs/';
+          
+          linkForQR = generateDecryptLink(file, gateway);
+          console.log('✅ Encrypted file - QR points to decrypt page:', linkForQR);
+        } else {
+          // NON-ENCRYPTED FILE: Use direct IPFS link
+          linkForQR = sharedLink.url;
+          console.log('✅ Public file - QR points to direct IPFS:', linkForQR);
+        }
+        
+        if (linkForQR) {
+          // Use QR code generation API
+          const qrURL = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(linkForQR)}&color=3b82f6&bgcolor=ffffff`;
+          setQrCodeURL(qrURL);
+        }
+      } catch (error) {
+        console.error('Error generating QR code:', error);
       }
-      
-      if (linkForQR) {
-        // Use QR code generation API
-        const qrURL = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(linkForQR)}&color=3b82f6&bgcolor=ffffff`;
-        setQrCodeURL(qrURL);
-      }
-    } catch (error) {
-      console.error('Error generating QR code:', error);
     }
-  }
-}, [sharedLink, showQRCode]);
+  }, [sharedLink, showQRCode]);
 
   const copyToClipboard = (text, type) => {
     try {
@@ -138,6 +143,7 @@ useEffect(() => {
             <h3 style={{ margin: 0, color: theme.colors.text.primary, fontSize: '1.1rem' }}>
               {sharedLink.file.encrypted && '🔒 '}
               {sharedLink.file.name}
+              {!sharedLink.file.encrypted && ' 🌐'}
             </h3>
             <button
               onClick={() => setShowQRCode(!showQRCode)}
@@ -195,10 +201,19 @@ useEffect(() => {
                 color: '#374151',
                 fontSize: '0.9rem',
                 marginTop: theme.spacing.md,
-                marginBottom: theme.spacing.sm,
-                fontWeight: '500',
+                marginBottom: theme.spacing.xs,
+                fontWeight: '600',
               }}>
                 📱 Scan with your phone to access file
+              </p>
+              <p style={{
+                color: '#6b7280',
+                fontSize: '0.8rem',
+                marginBottom: theme.spacing.sm,
+              }}>
+                {sharedLink.file.encrypted 
+                  ? '🔒 Opens decrypt page (password required)' 
+                  : '🌐 Opens file directly (no password needed)'}
               </p>
               <button
                 onClick={downloadQRCode}
@@ -381,8 +396,20 @@ useEffect(() => {
                 color: theme.colors.text.secondary,
                 fontSize: '0.9rem',
                 marginBottom: theme.spacing.xs,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
               }}>
-                📎 Public IPFS Link
+                <span>📎 Public IPFS Link</span>
+                <span style={{
+                  background: 'rgba(34, 197, 94, 0.2)',
+                  color: '#4ade80',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  fontSize: '0.75rem',
+                }}>
+                  Direct Access - No Password
+                </span>
               </div>
               <div style={{
                 display: 'flex',
@@ -430,7 +457,7 @@ useEffect(() => {
                 fontSize: '0.85rem',
                 color: '#fbbf24',
               }}>
-                ⚠️ Warning: This file is not encrypted. Anyone with the link can access it.
+                ⚠️ Note: This file is NOT encrypted. The QR code opens the file directly - no password needed.
               </div>
             </div>
           )}
@@ -503,13 +530,14 @@ useEffect(() => {
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                   }}>
-                    {file.encrypted && '🔒 '}{file.name}
+                    {file.encrypted ? '🔒' : '🌐'} {file.name}
                   </div>
                   <div style={{
                     color: theme.colors.text.secondary,
                     fontSize: '0.85rem',
                   }}>
                     {file.uploadedAt ? new Date(file.uploadedAt).toLocaleDateString() : 'Recently uploaded'}
+                    {file.encrypted ? ' • Encrypted' : ' • Public'}
                   </div>
                 </div>
                 <div style={{
