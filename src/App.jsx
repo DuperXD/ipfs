@@ -212,11 +212,33 @@ export default function App() {
     alert(`✅ Folder "${folderName}" created!`);
   };
 
-  const navigateToFolder = (folderPath) => {
+ const navigateToFolder = (folderPath) => {
     setCurrentFolder(folderPath);
     setActiveTab('files');
   };
 
+  const deleteFolder = (folderPath) => {
+    // Delete the folder
+    const updatedFolders = folders.filter(f => !f.startsWith(folderPath));
+    setFolders(updatedFolders);
+    saveFoldersToStorage(updatedFolders);
+    
+    // Delete all files in that folder
+    const updatedFiles = files.filter(file => {
+      const fileFolderPath = file.folder || '/';
+      return !fileFolderPath.startsWith(folderPath);
+    });
+    setFiles(updatedFiles);
+    saveFilesToStorage(updatedFiles);
+    
+    // Navigate to parent folder
+    const parentFolder = folderPath.substring(0, folderPath.lastIndexOf('/')) || '/';
+    setCurrentFolder(parentFolder);
+    
+    alert(`✅ Folder deleted! All files inside were also deleted.`);
+  };
+
+  // File operations
   // File operations
   const deleteFile = async (cid) => {
     if (!confirm('Delete file permanently?')) return;
@@ -435,12 +457,63 @@ export default function App() {
             {/* Content */}
             {activeTab === 'upload' && (
               <>
-                <FolderManager
+               <FolderManager
                   currentFolder={currentFolder}
                   folders={folders}
                   onCreateFolder={createFolder}
                   onNavigate={navigateToFolder}
+                  onDeleteFolder={deleteFolder}
                 />
+```
+
+**⚠️ DO THIS TWICE!** There are **TWO** FolderManager components:
+- One in the "upload" tab (around line 482)
+- One in the "files" tab (around line 498)
+
+Update **BOTH**!
+
+**✅ Save App.jsx** (Commit changes)
+
+---
+
+## 🎯 Quick Summary:
+
+### **FolderManager.jsx (2 changes):**
+1. Add `onDeleteFolder` to function parameters (line 4)
+2. Add delete button after "New Folder" button (lines 85-112)
+
+### **App.jsx (3 changes):**
+1. Add `deleteFolder` function (after `navigateToFolder`)
+2. Add `onDeleteFolder={deleteFolder}` to first FolderManager (upload tab)
+3. Add `onDeleteFolder={deleteFolder}` to second FolderManager (files tab)
+
+---
+
+## ✅ After Changes:
+
+1. **Commit both files** on GitHub
+2. **Vercel auto-deploys** (wait 2-3 minutes)
+3. **Test your app:**
+   - Create a folder
+   - Navigate into it
+   - See "🗑️ Delete Folder" button appear
+   - Click it → Confirm → Folder deleted! ✅
+
+---
+
+## 🎨 What Users Will See:
+
+**Home folder:**
+```
+🏠 Home
+[📁 New Folder]
+```
+No delete button (can't delete home!)
+
+**Inside a folder:**
+```
+🏠 Home › 📁 Documents
+[📁 New Folder] [🗑️ Delete Folder]
                 <UploadSection
                   onFileUpload={handleFileUpload}
                   uploading={uploading}
@@ -451,12 +524,63 @@ export default function App() {
 
             {activeTab === 'files' && (
               <>
-                <FolderManager
+               <FolderManager
                   currentFolder={currentFolder}
                   folders={folders}
                   onCreateFolder={createFolder}
                   onNavigate={navigateToFolder}
+                  onDeleteFolder={deleteFolder}
                 />
+```
+
+**⚠️ DO THIS TWICE!** There are **TWO** FolderManager components:
+- One in the "upload" tab (around line 482)
+- One in the "files" tab (around line 498)
+
+Update **BOTH**!
+
+**✅ Save App.jsx** (Commit changes)
+
+---
+
+## 🎯 Quick Summary:
+
+### **FolderManager.jsx (2 changes):**
+1. Add `onDeleteFolder` to function parameters (line 4)
+2. Add delete button after "New Folder" button (lines 85-112)
+
+### **App.jsx (3 changes):**
+1. Add `deleteFolder` function (after `navigateToFolder`)
+2. Add `onDeleteFolder={deleteFolder}` to first FolderManager (upload tab)
+3. Add `onDeleteFolder={deleteFolder}` to second FolderManager (files tab)
+
+---
+
+## ✅ After Changes:
+
+1. **Commit both files** on GitHub
+2. **Vercel auto-deploys** (wait 2-3 minutes)
+3. **Test your app:**
+   - Create a folder
+   - Navigate into it
+   - See "🗑️ Delete Folder" button appear
+   - Click it → Confirm → Folder deleted! ✅
+
+---
+
+## 🎨 What Users Will See:
+
+**Home folder:**
+```
+🏠 Home
+[📁 New Folder]
+```
+No delete button (can't delete home!)
+
+**Inside a folder:**
+```
+🏠 Home › 📁 Documents
+[📁 New Folder] [🗑️ Delete Folder]
                 
                 {getCurrentSubfolders().length > 0 && (
                   <div style={{
