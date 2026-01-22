@@ -13,6 +13,14 @@ export const recordUploadOnChain = async (fileName, cid) => {
     const signer = await provider.getSigner();
     const userAddress = await signer.getAddress();
 
+    // Check balance first
+    const balance = await provider.getBalance(userAddress);
+    console.log('Current balance:', ethers.formatEther(balance), 'ETH');
+
+    if (balance === 0n) {
+      throw new Error('Insufficient funds: Your balance is 0 ETH. Please get test ETH from a faucet.');
+    }
+
     // Encode file info in transaction data
     const data = ethers.hexlify(
       ethers.toUtf8Bytes(
@@ -25,12 +33,12 @@ export const recordUploadOnChain = async (fileName, cid) => {
       )
     );
 
-    // Create transaction
-    // Sending 0.0001 ETH to yourself with file data
+    // Create transaction with LOWER amount
     const tx = await signer.sendTransaction({
       to: userAddress, // Send to yourself
-      value: ethers.parseEther('0.0001'), // 0.0001 ETH
-      data: data // File info stored here
+      value: ethers.parseEther('0.00001'), // Reduced to 0.00001 ETH
+      data: data,
+      gasLimit: 100000 // Set explicit gas limit
     });
 
     console.log('⏳ Transaction sent! Hash:', tx.hash);
@@ -54,6 +62,10 @@ export const recordUploadOnChain = async (fileName, cid) => {
     
     if (error.code === 'ACTION_REJECTED') {
       throw new Error('Transaction rejected by user');
+    }
+    
+    if (error.message.includes('insufficient funds')) {
+      throw new Error('Insufficient funds for transaction. Please get more test ETH.');
     }
     
     throw error;
