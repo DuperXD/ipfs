@@ -10,6 +10,7 @@ import FolderManager from './components/FolderManager';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import { WalletService } from './utils/wallet';
 import { IPFSService } from './utils/ipfs';
+import { recordUploadOnChain } from './utils/transaction';
 
 import { EncryptionService } from './utils/encryption';
 import { theme } from './styles/theme';
@@ -27,7 +28,7 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isMetaMaskInstalled, setIsMetaMaskInstalled] = useState(false);
   const [ipfsMode, setIpfsMode] = useState('checking');
-  
+
   // Advanced features state
   const [showPreview, setShowPreview] = useState(false);
   const [previewFile, setPreviewFile] = useState(null);
@@ -49,7 +50,7 @@ export default function App() {
       checkConnection();
       setupEventListeners();
     }, 100);
-    
+
     return () => clearTimeout(timer);
   }, []);
 
@@ -104,6 +105,7 @@ export default function App() {
     setCurrentFolder('/');
   };
 
+  const handleFileUpload = async (event) => {
  const handleFileUpload = async (event) => {
   const file = event.target.files[0];
   if (!file) return;
@@ -122,17 +124,60 @@ export default function App() {
 
   setUploading(true);
   try {
+    console.log('📤 Starting upload process...');
+
+    // Step 1: Upload to IPFS
+    console.log('1️⃣ Uploading to IPFS...');
     const fileData = await ipfsService.uploadFile(file, account);
     fileData.folder = currentFolder;
     fileData.encrypted = false;
-    
+
+    // Step 2: Record on blockchain
+    console.log('2️⃣ Recording on blockchain...');
+    console.log('💳 MetaMask will prompt for transaction approval...');
+
+    try {
+      const txResult = await recordUploadOnChain(fileData.name, fileData.cid);
+      
+      // Add blockchain info
+      fileData.blockchainTx = txResult.txHash;
+      fileData.blockNumber = txResult.blockNumber;
+      fileData.gasUsed = txResult.gasUsed;
+      fileData.onBlockchain = true;
+      
+      console.log('✅ File recorded on blockchain!');
+      
+      const newFiles = [...files, fileData];
+      setFiles(newFiles);
+      saveFilesToStorage(newFiles);
+      
+      alert(`✅ Success!\n\nFile uploaded to IPFS ✅\nRecorded on blockchain ⛓️\n\nTransaction: ${txResult.txHash.slice(0, 10)}...`);
+      
+    } catch (blockchainError) {
+      console.error('⚠️ Blockchain error:', blockchainError);
+      
+      if (blockchainError.message.includes('rejected')) {
+        alert('❌ Transaction cancelled! File was NOT uploaded.');
+        event.target.value = '';
+        setUploading(false);
+        return;
+      }
+      
+      fileData.onBlockchain = false;
+      const newFiles = [...files, fileData];
+      setFiles(newFiles);
+      saveFilesToStorage(newFiles);
+      
+      alert('⚠️ File uploaded to IPFS but blockchain recording failed.');
+    }
     const newFiles = [...files, fileData];
     setFiles(newFiles);
     saveFilesToStorage(newFiles);
-    
+
     alert('✅ File uploaded successfully!');
     event.target.value = '';
   } catch (error) {
+    console.error('❌ Upload error:', error);
     console.error('Upload error:', error);
     alert('❌ Upload failed. Please try again.');
   } finally {
@@ -151,6 +196,7 @@ export default function App() {
     setShowEncryptDialog(true);
   };
 
+  const handleEncryptionConfirm = async () => {
  const handleEncryptionConfirm = async () => {
   if (!encryptionPassword) {
     alert('Please enter a password!');
@@ -166,6 +212,10 @@ export default function App() {
   setShowEncryptionDialog(false);
 
   try {
+    console.log('📤 Starting encrypted upload...');
+    
+    // Step 1: Upload encrypted file
+    console.log('1️⃣ Encrypting and uploading to IPFS...');
     const fileData = await ipfsService.uploadEncryptedFile(
       pendingFile,
       encryptionPassword,
@@ -173,12 +223,44 @@ export default function App() {
     );
     fileData.folder = currentFolder;
 
+    // Step 2: Record on blockchain
+    console.log('2️⃣ Recording on blockchain...');
+    console.log('💳 MetaMask will prompt for transaction approval...');
     const newFiles = [...files, fileData];
     setFiles(newFiles);
     saveFilesToStorage(newFiles);
     
     alert('✅ File encrypted and uploaded successfully!');
-    
+
+    try {
+      const txResult = await recordUploadOnChain(fileData.name, fileData.cid);
+      
+      fileData.blockchainTx = txResult.txHash;
+      fileData.blockNumber = txResult.blockNumber;
+      fileData.gasUsed = txResult.gasUsed;
+      fileData.onBlockchain = true;
+      
+      const newFiles = [...files, fileData];
+      setFiles(newFiles);
+      saveFilesToStorage(newFiles);
+      
+      alert(`✅ Success!\n\nFile encrypted ✅\nUploaded to IPFS ✅\nRecorded on blockchain ⛓️\n\nTransaction: ${txResult.txHash.slice(0, 10)}...`);
+      
+    } catch (blockchainError) {
+      if (blockchainError.message.includes('rejected')) {
+        alert('❌ Transaction cancelled! File was NOT uploaded.');
+        setUploading(false);
+        return;
+      }
+      
+      fileData.onBlockchain = false;
+      const newFiles = [...files, fileData];
+      setFiles(newFiles);
+      saveFilesToStorage(newFiles);
+      
+      alert('⚠️ File uploaded but blockchain recording failed.');
+    }
+
     setPendingFile(null);
     setEncryptionPassword('');
   } catch (error) {
@@ -213,7 +295,7 @@ export default function App() {
     const folderPath = currentFolder === '/' 
       ? `/${folderName}` 
       : `${currentFolder}/${folderName}`;
-    
+
     if (folders.includes(folderPath)) {
       alert('Folder exists!');
       return;
@@ -235,7 +317,7 @@ export default function App() {
     const updatedFolders = folders.filter(f => !f.startsWith(folderPath));
     setFolders(updatedFolders);
     saveFoldersToStorage(updatedFolders);
-    
+
     // Delete all files in that folder
     const updatedFiles = files.filter(file => {
       const fileFolderPath = file.folder || '/';
@@ -243,11 +325,11 @@ export default function App() {
     });
     setFiles(updatedFiles);
     saveFilesToStorage(updatedFiles);
-    
+
     // Navigate to parent folder
     const parentFolder = folderPath.substring(0, folderPath.lastIndexOf('/')) || '/';
     setCurrentFolder(parentFolder);
-    
+
     alert(`✅ Folder deleted! All files inside were also deleted.`);
   };
 
@@ -258,14 +340,14 @@ export default function App() {
 
     try {
       const fileToDelete = files.find(f => f.cid === cid);
-      
+
       if (fileToDelete?.isRealIPFS && ipfsService.useRealIPFS) {
         await ipfsService.deleteFromPinata(cid);
         alert('✅ Deleted from IPFS!');
       } else {
         alert('✅ Deleted locally!');
       }
-      
+
       const updatedFiles = files.filter(f => f.cid !== cid);
       setFiles(updatedFiles);
       saveFilesToStorage(updatedFiles);
@@ -292,13 +374,13 @@ export default function App() {
       setShowDecryptDialog(true);
       return;
     }
-    
+
     const fileWithUrl = {
       ...file,
       ipfsUrl: ipfsService.getGatewayUrl(file.cid),
       formattedSize: ipfsService.formatFileSize(file.size)
     };
-    
+
     setPreviewFile(fileWithUrl);
     setShowPreview(true);
   };
@@ -310,31 +392,31 @@ export default function App() {
       // Fetch encrypted file from IPFS
       const ipfsUrl = ipfsService.getGatewayUrl(fileToDecrypt.cid);
       console.log('📥 Downloading encrypted file from IPFS...');
-      
+
       const response = await fetch(ipfsUrl);
       if (!response.ok) {
         throw new Error('Failed to download file from IPFS');
       }
-      
+
       const encryptedBlob = await response.blob();
       console.log('🔓 Decrypting file...');
-      
+
       // Decrypt the file
       const decryptedData = await encryptionService.decryptFile(encryptedBlob, password);
-      
+
       // Create blob from decrypted data
       const decryptedBlob = new Blob([decryptedData], { 
         type: fileToDecrypt.originalType || 'application/octet-stream' 
       });
-      
+
       // Create object URL for preview
       const objectUrl = URL.createObjectURL(decryptedBlob);
-      
+
       console.log('✅ File decrypted successfully!');
-      
+
       // Close decrypt dialog
       setShowDecryptDialog(false);
-      
+
       // Show preview with decrypted file
       const fileWithUrl = {
         ...fileToDecrypt,
@@ -344,11 +426,11 @@ export default function App() {
         formattedSize: ipfsService.formatFileSize(fileToDecrypt.originalSize || fileToDecrypt.size),
         isDecrypted: true
       };
-      
+
       setPreviewFile(fileWithUrl);
       setShowPreview(true);
       setFileToDecrypt(null);
-      
+
     } catch (error) {
       console.error('Decryption error:', error);
       throw error; // Let DecryptDialog handle the error
@@ -506,7 +588,7 @@ export default function App() {
 
 
 
-                
+
                 {getCurrentSubfolders().length > 0 && (
                   <div style={{
                     display: 'grid',
@@ -615,4 +697,3 @@ export default function App() {
       )}
     </div>
   );
-}
