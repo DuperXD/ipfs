@@ -26,7 +26,7 @@ web3-ipfs-storage/
 │   ├── App.jsx            # Main application component
 │   ├── components/
 │   │   ├── Header.jsx     ## Navigation header with wallet connection
-        ├── AnalyticsDashboar.jsx   #Analytics Stats
+        ├── AnalyticsDashboard.jsx   #Analytics Stats
 │   │   ├── UploadSection.jsx # File upload interface
 │   │   ├── FilesList.jsx  # File management table
 │   │   └── ShareSection.jsx   # File sharing interface
