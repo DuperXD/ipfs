@@ -10,6 +10,7 @@ import FolderManager from './components/FolderManager';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import { WalletService } from './utils/wallet';
 import { IPFSService } from './utils/ipfs';
+import { recordUploadOnChain } from './utils/transaction';
 import { EncryptionService } from './utils/encryption';
 import { theme } from './styles/theme';
 
@@ -103,33 +104,79 @@ export default function App() {
     setCurrentFolder('/');
   };
 
-  // File upload (regular)
   const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+  const file = event.target.files[0];
+  if (!file) return;
 
-    if (!isConnected) {
-      alert('Please connect your wallet first!');
-      return;
-    }
+  if (!isConnected) {
+    alert('Please connect your wallet first!');
+    return;
+  }
 
-    setUploading(true);
+  const MAX_SIZE = 25 * 1024 * 1024;
+  if (file.size > MAX_SIZE) {
+    alert(`❌ File too large!\n\nFile size: ${ipfsService.formatFileSize(file.size)}\nMaximum allowed: 25 MB`);
+    event.target.value = '';
+    return;
+  }
+
+  setUploading(true);
+  try {
+    console.log('📤 Starting upload process...');
+
+    // Step 1: Upload to IPFS
+    console.log('1️⃣ Uploading to IPFS...');
+    const fileData = await ipfsService.uploadFile(file, account);
+    fileData.folder = currentFolder;
+    fileData.encrypted = false;
+
+    // Step 2: Record on blockchain
+    console.log('2️⃣ Recording on blockchain...');
+    console.log('💳 MetaMask will prompt for transaction approval...');
+    
     try {
-      const fileData = await ipfsService.uploadFile(file, account);
-      fileData.folder = currentFolder;
-      fileData.encrypted = false;
+      const txResult = await recordUploadOnChain(fileData.name, fileData.cid);
+      
+      // Add blockchain info
+      fileData.blockchainTx = txResult.txHash;
+      fileData.blockNumber = txResult.blockNumber;
+      fileData.gasUsed = txResult.gasUsed;
+      fileData.onBlockchain = true;
+      
+      console.log('✅ File recorded on blockchain!');
       
       const newFiles = [...files, fileData];
       setFiles(newFiles);
       saveFilesToStorage(newFiles);
-      alert('✅ File uploaded!');
-      event.target.value = '';
-    } catch (error) {
-      alert('❌ Upload failed');
-    } finally {
-      setUploading(false);
+      
+      alert(`✅ Success!\n\nFile uploaded to IPFS ✅\nRecorded on blockchain ⛓️\n\nTransaction: ${txResult.txHash.slice(0, 10)}...`);
+      
+    } catch (blockchainError) {
+      console.error('⚠️ Blockchain error:', blockchainError);
+      
+      if (blockchainError.message.includes('rejected')) {
+        alert('❌ Transaction cancelled! File was NOT uploaded.');
+        event.target.value = '';
+        setUploading(false);
+        return;
+      }
+      
+      fileData.onBlockchain = false;
+      const newFiles = [...files, fileData];
+      setFiles(newFiles);
+      saveFilesToStorage(newFiles);
+      
+      alert('⚠️ File uploaded to IPFS but blockchain recording failed.');
     }
-  };
+    
+    event.target.value = '';
+  } catch (error) {
+    console.error('❌ Upload error:', error);
+    alert('❌ Upload failed. Please try again.');
+  } finally {
+    setUploading(false);
+  }
+};
 
   // Encrypted upload
   const handleEncryptedUpload = (file) => {
@@ -142,40 +189,74 @@ export default function App() {
     setShowEncryptDialog(true);
   };
 
-  const handleEncryptionConfirm = async (password) => {
-    if (!pendingFile) return;
+  const handleEncryptionConfirm = async () => {
+  if (!encryptionPassword) {
+    alert('Please enter a password!');
+    return;
+  }
 
-    setShowEncryptDialog(false);
-    setUploading(true);
+  if (encryptionPassword.length < 6) {
+    alert('Password must be at least 6 characters!');
+    return;
+  }
 
+  setUploading(true);
+  setShowEncryptionDialog(false);
+
+  try {
+    console.log('📤 Starting encrypted upload...');
+    
+    // Step 1: Upload encrypted file
+    console.log('1️⃣ Encrypting and uploading to IPFS...');
+    const fileData = await ipfsService.uploadEncryptedFile(
+      pendingFile,
+      encryptionPassword,
+      account
+    );
+    fileData.folder = currentFolder;
+
+    // Step 2: Record on blockchain
+    console.log('2️⃣ Recording on blockchain...');
+    console.log('💳 MetaMask will prompt for transaction approval...');
+    
     try {
-      const { encryptedFile, originalName, originalType, originalSize } = 
-        await encryptionService.encryptFile(pendingFile, password);
-
-      const encryptedFileObj = new File([encryptedFile], originalName + '.encrypted', {
-        type: 'application/octet-stream'
-      });
-
-      const fileData = await ipfsService.uploadFile(encryptedFileObj, account);
-      fileData.encrypted = true;
-      fileData.originalName = originalName;
-      fileData.originalType = originalType;
-      fileData.originalSize = originalSize;
-      fileData.folder = currentFolder;
-      fileData.name = originalName;
-
+      const txResult = await recordUploadOnChain(fileData.name, fileData.cid);
+      
+      fileData.blockchainTx = txResult.txHash;
+      fileData.blockNumber = txResult.blockNumber;
+      fileData.gasUsed = txResult.gasUsed;
+      fileData.onBlockchain = true;
+      
       const newFiles = [...files, fileData];
       setFiles(newFiles);
       saveFilesToStorage(newFiles);
       
-      alert('✅ Encrypted & uploaded!\n⚠️ Save your password!');
-      setPendingFile(null);
-    } catch (error) {
-      alert('❌ Encryption failed');
-    } finally {
-      setUploading(false);
+      alert(`✅ Success!\n\nFile encrypted ✅\nUploaded to IPFS ✅\nRecorded on blockchain ⛓️\n\nTransaction: ${txResult.txHash.slice(0, 10)}...`);
+      
+    } catch (blockchainError) {
+      if (blockchainError.message.includes('rejected')) {
+        alert('❌ Transaction cancelled! File was NOT uploaded.');
+        setUploading(false);
+        return;
+      }
+      
+      fileData.onBlockchain = false;
+      const newFiles = [...files, fileData];
+      setFiles(newFiles);
+      saveFilesToStorage(newFiles);
+      
+      alert('⚠️ File uploaded but blockchain recording failed.');
     }
-  };
+
+    setPendingFile(null);
+    setEncryptionPassword('');
+  } catch (error) {
+    console.error('Upload error:', error);
+    alert('❌ Upload failed. Please try again.');
+  } finally {
+    setUploading(false);
+  }
+};
 
   // Storage
   const saveFilesToStorage = (filesData) => {
