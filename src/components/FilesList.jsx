@@ -87,6 +87,9 @@ export default function FilesList({ files, searchTerm, onSearchChange, onDelete,
                     Name
                   </th>
                   <th style={{ padding: theme.spacing.sm, textAlign: 'left', color: theme.colors.blue.light, fontWeight: '600' }}>
+                    Status
+                  </th>
+                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', color: theme.colors.blue.light, fontWeight: '600' }}>
                     CID
                   </th>
                   <th style={{ padding: theme.spacing.sm, textAlign: 'left', color: theme.colors.blue.light, fontWeight: '600' }}>
@@ -115,9 +118,46 @@ export default function FilesList({ files, searchTerm, onSearchChange, onDelete,
                     <td style={{ padding: theme.spacing.sm, color: theme.colors.text.primary }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span>📄</span>
-                        <span>{file.name}</span>
+                        <span>{file.encrypted && '🔒 '}{file.name}</span>
                       </div>
                     </td>
+                    
+                    {/* BLOCKCHAIN STATUS */}
+                    <td style={{ padding: theme.spacing.sm }}>
+                      {file.onBlockchain ? (
+                        <div>
+                          <div style={{
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            color: 'white',
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            display: 'inline-block',
+                            marginBottom: '4px',
+                          }}>
+                            ⛓️ On-Chain
+                          </div>
+                          {file.blockchainTx && (
+                            <div style={{
+                              fontSize: '0.7rem',
+                              color: theme.colors.text.secondary,
+                              fontFamily: 'monospace',
+                            }}>
+                              {file.blockchainTx.slice(0, 8)}...
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{
+                          color: theme.colors.text.secondary,
+                          fontSize: '0.75rem',
+                        }}>
+                          IPFS Only
+                        </div>
+                      )}
+                    </td>
+
                     <td style={{ padding: theme.spacing.sm, color: theme.colors.text.secondary, fontFamily: 'monospace', fontSize: '0.85rem' }}>
                       {file.cid.substring(0, 10)}...{file.cid.substring(file.cid.length - 6)}
                     </td>
