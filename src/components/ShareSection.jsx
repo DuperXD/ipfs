@@ -6,47 +6,89 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
   const [qrCodeURL, setQrCodeURL] = useState('');
 
   const generateDecryptLink = (file, gateway) => {
-    const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
-    const gatewayParam = encodeURIComponent(gateway);
-    const nameParam = encodeURIComponent(file.originalName || file.name);
-    return `${baseUrl}/decrypt?cid=${file.cid}&gateway=${gatewayParam}&name=${nameParam}`;
+    try {
+      const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+      const gatewayParam = encodeURIComponent(gateway);
+      const nameParam = encodeURIComponent(file.originalName || file.name);
+      return `${baseUrl}/decrypt?cid=${file.cid}&gateway=${gatewayParam}&name=${nameParam}`;
+    } catch (error) {
+      console.error('Error generating decrypt link:', error);
+      return '';
+    }
   };
 
   // Generate QR code URL when showing QR
   useEffect(() => {
     if (sharedLink && sharedLink.file && showQRCode) {
-      const file = sharedLink.file;
-      const gateway = sharedLink.url.includes('ipfs.io') 
-        ? 'https://ipfs.io/ipfs/'
-        : 'https://chocolate-accepted-galliform-350.mypinata.cloud/ipfs/';
-      
-      const decryptLink = generateDecryptLink(file, gateway);
-      
-      // Use QR code generation API
-      const qrURL = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(decryptLink)}&color=3b82f6&bgcolor=ffffff`;
-      setQrCodeURL(qrURL);
+      try {
+        const file = sharedLink.file;
+        const gateway = sharedLink.url && sharedLink.url.includes('ipfs.io') 
+          ? 'https://ipfs.io/ipfs/'
+          : 'https://chocolate-accepted-galliform-350.mypinata.cloud/ipfs/';
+        
+        const decryptLink = generateDecryptLink(file, gateway);
+        
+        if (decryptLink) {
+          // Use QR code generation API
+          const qrURL = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(decryptLink)}&color=3b82f6&bgcolor=ffffff`;
+          setQrCodeURL(qrURL);
+        }
+      } catch (error) {
+        console.error('Error generating QR code:', error);
+      }
     }
   }, [sharedLink, showQRCode]);
 
   const copyToClipboard = (text, type) => {
-    navigator.clipboard.writeText(text);
-    alert(`✅ ${type} copied to clipboard!`);
+    try {
+      navigator.clipboard.writeText(text);
+      alert(`✅ ${type} copied to clipboard!`);
+    } catch (error) {
+      console.error('Copy error:', error);
+      alert('❌ Failed to copy to clipboard');
+    }
   };
 
   const downloadQRCode = () => {
     if (!qrCodeURL) return;
     
-    const link = document.createElement('a');
-    link.download = `qr-code-${sharedLink.file.name}.png`;
-    link.href = qrCodeURL;
-    link.target = '_blank';
-    link.click();
+    try {
+      const link = document.createElement('a');
+      link.download = `qr-code-${sharedLink.file.name}.png`;
+      link.href = qrCodeURL;
+      link.target = '_blank';
+      link.click();
+    } catch (error) {
+      console.error('Download error:', error);
+      alert('❌ Failed to download QR code');
+    }
   };
 
   const handleGenerateLink = (file) => {
-    onGenerateLink(file);
-    setShowQRCode(false);
+    try {
+      setShowQRCode(false);
+      onGenerateLink(file);
+    } catch (error) {
+      console.error('Generate link error:', error);
+      alert('❌ Failed to generate link');
+    }
   };
+
+  // Safety check
+  if (!files) {
+    return (
+      <div style={{
+        background: theme.colors.background.card,
+        borderRadius: theme.borderRadius.lg,
+        border: `1px solid ${theme.colors.border}`,
+        padding: theme.spacing.xl,
+        textAlign: 'center',
+        color: theme.colors.text.secondary,
+      }}>
+        Loading files...
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -67,7 +109,7 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
       </div>
 
       {/* Shared Link Display */}
-      {sharedLink && (
+      {sharedLink && sharedLink.file && (
         <div style={{
           background: 'rgba(59, 130, 246, 0.1)',
           border: `1px solid rgba(59, 130, 246, 0.3)`,
@@ -133,6 +175,10 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
                   display: 'block',
                   margin: '0 auto',
                   borderRadius: theme.borderRadius.sm,
+                }}
+                onError={(e) => {
+                  console.error('QR code image failed to load');
+                  e.target.style.display = 'none';
                 }}
               />
               <p style={{
@@ -202,7 +248,7 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
                 }}>
                   <input
                     type="text"
-                    value={sharedLink.url}
+                    value={sharedLink.url || ''}
                     readOnly
                     style={{
                       flex: 1,
@@ -265,7 +311,7 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
                     type="text"
                     value={generateDecryptLink(
                       sharedLink.file,
-                      sharedLink.url.includes('ipfs.io') 
+                      sharedLink.url && sharedLink.url.includes('ipfs.io') 
                         ? 'https://ipfs.io/ipfs/'
                         : 'https://chocolate-accepted-galliform-350.mypinata.cloud/ipfs/'
                     )}
@@ -285,7 +331,7 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
                     onClick={() => copyToClipboard(
                       generateDecryptLink(
                         sharedLink.file,
-                        sharedLink.url.includes('ipfs.io') 
+                        sharedLink.url && sharedLink.url.includes('ipfs.io') 
                           ? 'https://ipfs.io/ipfs/'
                           : 'https://chocolate-accepted-galliform-350.mypinata.cloud/ipfs/'
                       ),
@@ -335,7 +381,7 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
               }}>
                 <input
                   type="text"
-                  value={sharedLink.url}
+                  value={sharedLink.url || ''}
                   readOnly
                   style={{
                     flex: 1,
@@ -453,7 +499,7 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
                     color: theme.colors.text.secondary,
                     fontSize: '0.85rem',
                   }}>
-                    {new Date(file.uploadedAt).toLocaleDateString()}
+                    {file.uploadedAt ? new Date(file.uploadedAt).toLocaleDateString() : 'Recently uploaded'}
                   </div>
                 </div>
                 <div style={{
