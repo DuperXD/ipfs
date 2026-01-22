@@ -7,6 +7,7 @@ import FilePreview from './components/FilePreview';
 import EncryptionDialog from './components/EncryptionDialog';
 import DecryptDialog from './components/DecryptDialog';
 import FolderManager from './components/FolderManager';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
 import { WalletService } from './utils/wallet';
 import { IPFSService } from './utils/ipfs';
 import { EncryptionService } from './utils/encryption';
@@ -431,6 +432,7 @@ export default function App() {
               {[
                 { id: 'upload', label: '📤 Upload' },
                 { id: 'files', label: '📁 My Files' },
+                { id: 'analytics', label: '📊 Analytics' },
                 { id: 'share', label: '🔗 Share' },
               ].map((tab) => (
                 <button
@@ -542,6 +544,13 @@ export default function App() {
                   formatDate={ipfsService.formatDate}
                 />
               </>
+            )}
+
+           {activeTab === 'analytics' && (
+              <AnalyticsDashboard
+                files={files}
+                folders={folders}
+              />
             )}
 
             {activeTab === 'share' && (
