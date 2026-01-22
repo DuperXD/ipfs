@@ -12,8 +12,8 @@ A modern decentralized file storage system built with React, IPFS, and blockchai
 - 🎨 **Modern UI**: Beautiful dark-themed interface with shades of blue
 - 🔍 **File Search**: Quick search functionality for uploaded files
 - 📊 **Storage Stats**: Track total files and storage usage
-- 📊 ** Analytics Dashboard
-- ⚙️ ** QR Code Sharing
+- 📊  Analytics Dashboard
+- ⚙️  QR Code Sharing
 ## 🏗️ Project Structure
 
 ```
