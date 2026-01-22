@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { theme } from '../styles/theme';
 
-export default function FolderManager({ currentFolder, folders, onCreateFolder, onNavigate }) {
+export default function FolderManager({ currentFolder, folders, onCreateFolder, onNavigate, onDeleteFolder }) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
 
@@ -82,7 +82,7 @@ export default function FolderManager({ currentFolder, folders, onCreateFolder, 
         ))}
       </div>
 
-      {/* Actions */}
+     {/* Actions */}
       <div style={{ display: 'flex', gap: theme.spacing.sm }}>
         <button
           onClick={() => setShowCreateDialog(true)}
@@ -109,8 +109,40 @@ export default function FolderManager({ currentFolder, folders, onCreateFolder, 
         >
           📁 New Folder
         </button>
+        
+        {/* Delete Current Folder Button */}
+        {currentFolder !== '/' && (
+          <button
+            onClick={() => {
+              if (confirm(`Delete folder "${currentFolder.split('/').pop()}" and all its contents?`)) {
+                onDeleteFolder(currentFolder);
+              }
+            }}
+            style={{
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              color: '#f87171',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
+              borderRadius: theme.borderRadius.sm,
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              fontWeight: '500',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              transition: 'all 0.3s',
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = 'rgba(239, 68, 68, 0.2)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = 'rgba(239, 68, 68, 0.1)';
+            }}
+          >
+            🗑️ Delete Folder
+          </button>
+        )}
       </div>
-
       {/* Create Folder Dialog */}
       {showCreateDialog && (
         <div
