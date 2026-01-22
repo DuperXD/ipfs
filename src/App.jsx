@@ -470,8 +470,7 @@ export default function App() {
 
 
 ```
-🏠 Home › 📁 Documents
-[📁 New Folder] [🗑️ Delete Folder]
+
                 <UploadSection
                   onFileUpload={handleFileUpload}
                   uploading={uploading}
