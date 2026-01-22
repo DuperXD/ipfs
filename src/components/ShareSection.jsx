@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { theme } from '../styles/theme';
 
 export default function ShareSection({ sharedLink, files, onGenerateLink }) {
   const [showQRCode, setShowQRCode] = useState(false);
   const [qrCodeURL, setQrCodeURL] = useState('');
-  const canvasRef = useRef(null);
 
   const generateDecryptLink = (file, gateway) => {
     const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
@@ -13,64 +12,21 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
     return `${baseUrl}/decrypt?cid=${file.cid}&gateway=${gatewayParam}&name=${nameParam}`;
   };
 
-  // Generate QR code when link is available
+  // Generate QR code URL when showing QR
   useEffect(() => {
     if (sharedLink && sharedLink.file && showQRCode) {
-      generateQRCode();
+      const file = sharedLink.file;
+      const gateway = sharedLink.url.includes('ipfs.io') 
+        ? 'https://ipfs.io/ipfs/'
+        : 'https://chocolate-accepted-galliform-350.mypinata.cloud/ipfs/';
+      
+      const decryptLink = generateDecryptLink(file, gateway);
+      
+      // Use QR code generation API
+      const qrURL = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(decryptLink)}&color=3b82f6&bgcolor=ffffff`;
+      setQrCodeURL(qrURL);
     }
   }, [sharedLink, showQRCode]);
-
-  const generateQRCode = async () => {
-    if (!sharedLink || !sharedLink.file) return;
-
-    const file = sharedLink.file;
-    const gateway = sharedLink.url.includes('ipfs.io') 
-      ? 'https://ipfs.io/ipfs/'
-      : 'https://chocolate-accepted-galliform-350.mypinata.cloud/ipfs/';
-    
-    const decryptLink = generateDecryptLink(file, gateway);
-
-    // Use QRCode library from CDN
-    try {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-
-      // Import QRCode library dynamically
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-      
-      script.onload = () => {
-        // Clear previous QR code
-        canvas.innerHTML = '';
-        
-        // Generate new QR code
-        new window.QRCode(canvas, {
-          text: decryptLink,
-          width: 256,
-          height: 256,
-          colorDark: '#3b82f6',
-          colorLight: '#ffffff',
-          correctLevel: window.QRCode.CorrectLevel.H
-        });
-
-        // Convert canvas to data URL for download
-        setTimeout(() => {
-          const qrCanvas = canvas.querySelector('canvas');
-          if (qrCanvas) {
-            setQrCodeURL(qrCanvas.toDataURL());
-          }
-        }, 100);
-      };
-
-      if (!window.QRCode) {
-        document.body.appendChild(script);
-      } else {
-        script.onload();
-      }
-    } catch (error) {
-      console.error('QR Code generation error:', error);
-    }
-  };
 
   const copyToClipboard = (text, type) => {
     navigator.clipboard.writeText(text);
@@ -83,6 +39,7 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
     const link = document.createElement('a');
     link.download = `qr-code-${sharedLink.file.name}.png`;
     link.href = qrCodeURL;
+    link.target = '_blank';
     link.click();
   };
 
@@ -123,6 +80,8 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
             justifyContent: 'space-between',
             alignItems: 'center',
             marginBottom: theme.spacing.md,
+            flexWrap: 'wrap',
+            gap: theme.spacing.sm,
           }}>
             <h3 style={{ margin: 0, color: theme.colors.text.primary, fontSize: '1.1rem' }}>
               {sharedLink.file.encrypted && '🔒 '}
@@ -142,6 +101,13 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
+                transition: 'all 0.3s',
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = 'scale(1.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'scale(1)';
               }}
             >
               📱 {showQRCode ? 'Hide' : 'Show'} QR Code
@@ -149,28 +115,32 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
           </div>
 
           {/* QR Code Display */}
-          {showQRCode && (
+          {showQRCode && qrCodeURL && (
             <div style={{
               background: 'white',
               padding: theme.spacing.lg,
               borderRadius: theme.borderRadius.md,
               marginBottom: theme.spacing.md,
               textAlign: 'center',
+              border: '2px solid #e5e7eb',
             }}>
-              <div 
-                ref={canvasRef} 
+              <img 
+                src={qrCodeURL} 
+                alt="QR Code"
                 style={{
-                  display: 'inline-block',
-                  padding: theme.spacing.md,
-                  background: 'white',
+                  width: '300px',
+                  height: '300px',
+                  display: 'block',
+                  margin: '0 auto',
                   borderRadius: theme.borderRadius.sm,
                 }}
               />
               <p style={{
-                color: theme.colors.text.secondary,
+                color: '#374151',
                 fontSize: '0.9rem',
-                marginTop: theme.spacing.sm,
+                marginTop: theme.spacing.md,
                 marginBottom: theme.spacing.sm,
+                fontWeight: '500',
               }}>
                 📱 Scan with your phone to access file
               </p>
@@ -180,12 +150,19 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
                   background: theme.colors.blue.gradient,
                   border: 'none',
                   color: 'white',
-                  padding: `${theme.spacing.sm} ${theme.spacing.md}`,
+                  padding: `${theme.spacing.sm} ${theme.spacing.lg}`,
                   borderRadius: theme.borderRadius.sm,
                   cursor: 'pointer',
                   fontSize: '0.9rem',
                   fontWeight: '600',
                   marginTop: theme.spacing.sm,
+                  transition: 'all 0.3s',
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.transform = 'scale(1.05)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.transform = 'scale(1)';
                 }}
               >
                 💾 Download QR Code
@@ -205,6 +182,7 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem',
+                  flexWrap: 'wrap',
                 }}>
                   <span>📎 IPFS Link</span>
                   <span style={{
@@ -220,6 +198,7 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
                 <div style={{
                   display: 'flex',
                   gap: theme.spacing.sm,
+                  flexWrap: 'wrap',
                 }}>
                   <input
                     type="text"
@@ -227,6 +206,7 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
                     readOnly
                     style={{
                       flex: 1,
+                      minWidth: '200px',
                       padding: theme.spacing.sm,
                       background: theme.colors.background.secondary,
                       border: `1px solid ${theme.colors.border}`,
@@ -246,6 +226,7 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
                       cursor: 'pointer',
                       fontSize: '0.9rem',
                       fontWeight: '500',
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     📋 Copy
@@ -262,6 +243,7 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem',
+                  flexWrap: 'wrap',
                 }}>
                   <span>🔓 Decrypt Link</span>
                   <span style={{
@@ -277,6 +259,7 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
                 <div style={{
                   display: 'flex',
                   gap: theme.spacing.sm,
+                  flexWrap: 'wrap',
                 }}>
                   <input
                     type="text"
@@ -289,6 +272,7 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
                     readOnly
                     style={{
                       flex: 1,
+                      minWidth: '200px',
                       padding: theme.spacing.sm,
                       background: theme.colors.background.secondary,
                       border: `1px solid ${theme.colors.border}`,
@@ -316,6 +300,7 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
                       cursor: 'pointer',
                       fontSize: '0.9rem',
                       fontWeight: '500',
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     📋 Copy
@@ -346,6 +331,7 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
               <div style={{
                 display: 'flex',
                 gap: theme.spacing.sm,
+                flexWrap: 'wrap',
               }}>
                 <input
                   type="text"
@@ -353,6 +339,7 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
                   readOnly
                   style={{
                     flex: 1,
+                    minWidth: '200px',
                     padding: theme.spacing.sm,
                     background: theme.colors.background.secondary,
                     border: `1px solid ${theme.colors.border}`,
@@ -372,6 +359,7 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
                     cursor: 'pointer',
                     fontSize: '0.9rem',
                     fontWeight: '500',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   📋 Copy
@@ -440,19 +428,24 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
                 onMouseEnter={(e) => {
                   if (sharedLink?.file?.cid !== file.cid) {
                     e.currentTarget.style.background = 'rgba(59, 130, 246, 0.08)';
+                    e.currentTarget.style.transform = 'translateX(4px)';
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (sharedLink?.file?.cid !== file.cid) {
                     e.currentTarget.style.background = 'rgba(59, 130, 246, 0.05)';
+                    e.currentTarget.style.transform = 'translateX(0)';
                   }
                 }}
               >
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, overflow: 'hidden' }}>
                   <div style={{
                     color: theme.colors.text.primary,
                     fontSize: '1rem',
                     marginBottom: '4px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                   }}>
                     {file.encrypted && '🔒 '}{file.name}
                   </div>
@@ -473,6 +466,8 @@ export default function ShareSection({ sharedLink, files, onGenerateLink }) {
                   color: 'white',
                   fontSize: '0.9rem',
                   fontWeight: '500',
+                  marginLeft: theme.spacing.sm,
+                  whiteSpace: 'nowrap',
                 }}>
                   {sharedLink?.file?.cid === file.cid ? '✓ Selected' : 'Select'}
                 </div>
