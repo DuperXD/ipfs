@@ -33,6 +33,7 @@ web3-ipfs-storage/
 │   ├── utils/
 │   │   ├── wallet.js      # Blockchain wallet service (MetaMask)
 │   │   └── ipfs.js        # IPFS service with hashing
+ │        └── encryption.js  # file encryption
 │   └── styles/
 │       └── theme.js       # Design system and theme configuration
 └── README.md              # Documentation
