@@ -273,7 +273,7 @@ Contributions are welcome! Please feel free to submit issues or pull requests.
 
 ## 📄 License
 
-MIT License - feel free to use this project for learning and development.
+ feel free to use this project for learning and development.
 
 ## 🙏 Acknowledgments
 
